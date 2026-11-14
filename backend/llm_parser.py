@@ -1,8 +1,13 @@
-"""Phase 1: ask Groq to turn raw text into structured data (plain Groq SDK, JSON mode)."""
-import json
+"""Phase 2: LangChain does the prompting, structured output and validation.
+
+Compare with Phase 1: no hand-written JSON schema in the prompt, no json.loads,
+no retry loop. `with_structured_output(PydanticModel)` returns a validated object.
+"""
 from datetime import date
 
-from groq import Groq
+from langchain_core.exceptions import OutputParserException
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_groq import ChatGroq
 from pydantic import BaseModel, ValidationError
 
 from backend import config
@@ -14,7 +19,7 @@ class LLMError(RuntimeError):
 
 
 RESUME_RULES = (
-    "You extract structured data from a resume. Use ONLY facts present in the text; never invent anything. "
+    "You extract structured JSON data from a resume. Use ONLY facts present in the text; never invent anything. "
     "Use an empty string or empty list when something is missing. "
     "'description' = all bullet points of that job/project joined with newlines. "
     "'technologies' = tools named for that project. "
@@ -24,46 +29,42 @@ RESUME_RULES = (
     "'duration_months' = integer months computed from the dates (today is {today})."
 )
 JD_RULES = (
-    "You extract structured data from a job description. Use ONLY facts present in the text. "
+    "You extract structured JSON data from a job description. Use ONLY facts present in the text. "
     "'required_skills' and 'preferred_skills' = individual skills/tools (not sentences). "
     "'keywords' = other important terms. 'responsibilities' = up to 8 short duty statements."
 )
 
 
-def _extract(rules: str, text: str, schema: type[BaseModel]) -> BaseModel:
+def _llm() -> ChatGroq:
     if not config.GROQ_API_KEY:
         raise LLMError("GROQ_API_KEY is not set. Copy .env.example to .env and add your key.")
-    client = Groq(api_key=config.GROQ_API_KEY)
-    system = (
-        rules.format(today=date.today().isoformat())
-        + "\nReturn ONLY one JSON object that follows this JSON Schema:\n"
-        + json.dumps(schema.model_json_schema())
-    )
     extra = {"reasoning_effort": "low"} if config.GROQ_MODEL.startswith("openai/gpt-oss") else {}
-    last_error: Exception | None = None
-    for _ in range(2):                       # one retry, and only when the first attempt failed
-        try:
-            resp = client.chat.completions.create(
-                model=config.GROQ_MODEL,
-                temperature=0,
-                response_format={"type": "json_object"},
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": text[: config.MAX_LLM_CHARS]},
-                ],
-                **extra,
-            )
-            return schema.model_validate_json(resp.choices[0].message.content or "")
-        except (ValidationError, ValueError) as exc:     # bad / empty JSON: try once more
-            last_error = exc
-        except Exception as exc:                          # network, auth, rate limit, retired model...
-            raise LLMError(f"Groq request failed ({type(exc).__name__}): {str(exc)[:200]}") from exc
-    raise LLMError(f"The AI returned an unreadable answer twice: {str(last_error)[:150]}")
+    return ChatGroq(model=config.GROQ_MODEL, api_key=config.GROQ_API_KEY,
+                    temperature=0, max_retries=2, **extra)
+
+
+def _structured_llm(schema: type[BaseModel]):
+    """A model that always answers with `schema`. Separate function so tests can replace it."""
+    return _llm().with_structured_output(schema, method=config.GROQ_STRUCTURED_METHOD)
+
+
+def run_structured(system: str, human: str, schema: type[BaseModel], **variables) -> BaseModel:
+    """prompt | structured LLM, retried once if the model returns unusable output."""
+    chain = (ChatPromptTemplate.from_messages([("system", system), ("human", human)])
+             | _structured_llm(schema)).with_retry(
+        retry_if_exception_type=(OutputParserException, ValidationError), stop_after_attempt=2)
+    try:
+        return chain.invoke(variables)
+    except LLMError:
+        raise
+    except Exception as exc:       # network, auth, rate limit, retired model...
+        raise LLMError(f"Groq request failed ({type(exc).__name__}): {str(exc)[:200]}") from exc
 
 
 def parse_resume(text: str) -> ParsedResume:
-    return _extract(RESUME_RULES, text, ParsedResume)
+    return run_structured(RESUME_RULES, "{text}", ParsedResume,
+                          text=text[: config.MAX_LLM_CHARS], today=date.today().isoformat())
 
 
 def parse_job_description(text: str) -> ParsedJD:
-    return _extract(JD_RULES, text, ParsedJD)
+    return run_structured(JD_RULES, "{text}", ParsedJD, text=text[: config.MAX_LLM_CHARS])
