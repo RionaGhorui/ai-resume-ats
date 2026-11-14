@@ -1,0 +1,12 @@
+Backend Engineer (Fresher) - Python
+
+We are looking for a Python backend engineer to build and ship REST APIs.
+
+Required skills: Python, FastAPI or Flask, SQL, Git, Docker, REST APIs, Kubernetes
+Preferred skills: AWS, CI/CD, pytest, Redis
+
+Responsibilities:
+- Design and build REST APIs for internal and customer-facing products
+- Write automated tests for every feature
+- Deploy services using containers and CI/CD pipelines
+- Collaborate with the frontend team on API contracts
