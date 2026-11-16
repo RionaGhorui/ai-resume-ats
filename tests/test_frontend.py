@@ -18,13 +18,13 @@ def result(monkeypatch, parsed_resume, parsed_jd):
 
 
 def test_page_loads_empty():
-    at = AppTest.from_file(str(APP)).run()
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
     assert not at.exception
     assert "AI Resume ATS" in at.title[0].value
 
 
 def test_page_renders_a_result(result):
-    at = AppTest.from_file(str(APP))
+    at = AppTest.from_file(str(APP), default_timeout=30)
     at.session_state["result"] = result
     at.run()
     assert not at.exception

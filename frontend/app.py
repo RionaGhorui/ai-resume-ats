@@ -95,6 +95,12 @@ def show(r: dict) -> None:
             st.markdown("**Missing:** " + (", ".join(jd["missing_keywords"]) or "none"))
             if jd["skills_gap"]:
                 st.error("Required skills missing: " + ", ".join(jd["skills_gap"]))
+            if jd.get("requirement_matches"):
+                st.markdown("**Best evidence in your resume for each duty** (retrieved by meaning)")
+                st.dataframe(
+                    [{"Job duty": m["requirement"], "Best match in resume": m["source"], "Similarity": m["score"]}
+                     for m in jd["requirement_matches"]],
+                    hide_index=True, use_container_width=True)
 
     if r["suggestions"]:
         with tabs["AI suggestions"]:

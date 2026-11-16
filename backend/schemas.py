@@ -111,6 +111,12 @@ class SkillValidation(BaseModel):
     validation_pct: float = 0.0
 
 
+class RequirementMatch(BaseModel):
+    requirement: str               # a duty from the job description
+    source: str                    # best-matching part of the resume
+    score: float                   # cosine similarity (0-1)
+
+
 class JDMatch(BaseModel):
     match_percentage: float
     keyword_match_pct: float
@@ -118,6 +124,7 @@ class JDMatch(BaseModel):
     matched_keywords: list[str] = []
     missing_keywords: list[str] = []
     skills_gap: list[str] = []                    # required JD skills missing from the resume
+    requirement_matches: list[RequirementMatch] = []   # RAG evidence per JD duty (Phase 3)
 
 
 class Suggestion(Lenient):

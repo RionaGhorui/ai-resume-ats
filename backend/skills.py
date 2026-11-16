@@ -1,4 +1,5 @@
 """Skill validation: is each listed skill actually used in a project / job / certificate?"""
+from backend import config
 from backend.matching import contains_term, dedupe
 from backend.schemas import ParsedResume, SkillEvidence, SkillValidation
 
@@ -20,13 +21,21 @@ def evidence_sources(parsed: ParsedResume) -> list[tuple[str, str]]:
     return out
 
 
-def validate_skills(parsed: ParsedResume) -> SkillValidation:
+def validate_skills(parsed: ParsedResume, index=None) -> SkillValidation:
+    """Exact (alias-aware) match first. If `index` is given, fall back to RAG retrieval by meaning."""
+    from backend.rag import retrieve    # local import: Phase 1/2 style callers need no embeddings
+
     sources = [(label, text.lower()) for label, text in evidence_sources(parsed)]
     validated, unvalidated = [], []
     for skill in dedupe(parsed.skills):
         labels = [label for label, text in sources if contains_term(text, skill)]
         if labels:
             validated.append(SkillEvidence(skill=skill, evidence=labels[:3]))
+            continue
+        hit = retrieve(index, f"experience using {skill}", k=1) if index is not None else []
+        if hit and hit[0].score >= config.SEMANTIC_THRESHOLD:
+            validated.append(SkillEvidence(
+                skill=skill, evidence=[f"{hit[0].source} (meaning match {hit[0].score:.2f})"]))
         else:
             unvalidated.append(skill)
     total = len(validated) + len(unvalidated)

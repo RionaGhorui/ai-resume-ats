@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from backend import config, models
 from backend.schemas import Education, Experience, ParsedJD, ParsedResume, Project
 
 SAMPLES = Path(__file__).resolve().parents[1] / "sample_data"
@@ -33,6 +34,15 @@ Software Engineering Intern - Example Tech Pvt Ltd (Jun 2025 - Aug 2025)
 CERTIFICATIONS
 AWS Cloud Practitioner (2025)
 """
+
+
+@pytest.fixture(autouse=True)
+def _fake_embeddings(monkeypatch):
+    """Every test uses the offline fake embedder, so no model is ever downloaded."""
+    monkeypatch.setattr(config, "EMBEDDINGS_BACKEND", "fake")
+    models.get_embeddings.cache_clear()
+    yield
+    models.get_embeddings.cache_clear()
 
 
 @pytest.fixture

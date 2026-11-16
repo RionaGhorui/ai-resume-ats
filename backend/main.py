@@ -1,23 +1,35 @@
 """FastAPI app. Run with:  uvicorn backend.main:app --port 8000"""
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from backend import config
 from backend.analyzer import analyze
 from backend.llm_parser import LLMError
+from backend.models import get_embeddings
 from backend.parsing import ResumeFileError, extract_text
 from backend.schemas import AnalysisResponse
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("ats")
 
-app = FastAPI(title="AI Resume ATS", version="2.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        get_embeddings()                       # load the model now so the first request is not slow
+    except Exception:
+        log.warning("Embedding model not ready; it will be retried on the first request.", exc_info=True)
+    yield
+
+
+app = FastAPI(title="AI Resume ATS", version="3.0.0", lifespan=lifespan)
 
 
 @app.get("/api/v1/health")
 def health():
-    return {"status": "ok", "llm_configured": bool(config.GROQ_API_KEY), "model": config.GROQ_MODEL}
+    return {"status": "ok", "llm_configured": bool(config.GROQ_API_KEY), "model": config.GROQ_MODEL,
+            "embeddings": config.EMBEDDINGS_BACKEND}
 
 
 # A plain `def` (not `async def`): FastAPI runs it in a worker thread, so the slow
