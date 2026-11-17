@@ -118,3 +118,46 @@ Embeddings use `fastembed` (ONNX) instead of `sentence-transformers`: the **same
 - Tests use a fake embedder (`EMBEDDINGS_BACKEND=fake`), so `pytest` never downloads anything.
 
 After unzipping Phase 3 in a new folder, run `pip install -r requirements.txt` again.
+
+## Phase 4: MCP server
+
+MCP (Model Context Protocol) is a standard way for AI apps (Claude Desktop, IDEs, agents) to call your code as *tools*.
+`backend/mcp_server.py` exposes the same pipeline the REST API uses. It adds no new scoring logic.
+
+| Tool | Does | Needs `GROQ_API_KEY`? |
+|---|---|---|
+| `score_resume(resume_text, job_description="")` | full analysis, same JSON as the API | yes |
+| `score_resume_file(path, job_description="")` | same, but reads a local `.pdf` / `.docx` | yes |
+| `find_resume_evidence(resume_text, query, k=3)` | semantic search inside a resume (the RAG part on its own) | no |
+
+**See it work (no extra software):**
+
+```bash
+python scripts/mcp_demo.py                      # starts the server, lists tools, calls one
+python -m backend.mcp_server                    # run the server by hand (it waits silently for a client)
+```
+
+**Use it from Claude Desktop** (optional). Edit the config file
+(macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`, Windows: `%APPDATA%\Claude\claude_desktop_config.json`)
+and use absolute paths. The server reads `GROQ_API_KEY` from your project's `.env`, so the key does not go in this file:
+
+```json
+{
+  "mcpServers": {
+    "ai-resume-ats": {
+      "command": "/ABSOLUTE/PATH/ai-resume-ats/.venv/bin/python",
+      "args": ["-m", "backend.mcp_server"],
+      "env": { "PYTHONPATH": "/ABSOLUTE/PATH/ai-resume-ats" }
+    }
+  }
+}
+```
+
+On Windows use `C:\\...\\ai-resume-ats\\.venv\\Scripts\\python.exe`. Restart Claude Desktop, then ask:
+*"Score the resume at /path/to/resume.pdf for this job description: ..."*
+
+**Things to know**
+- This project uses **mcp 2.x**, where `FastMCP` was renamed to `MCPServer` (`from mcp.server.mcpserver import MCPServer`). Older tutorials show the v1 import and will not work with this version.
+- With the stdio transport, stdout carries the protocol, so the server must never `print()`. It logs to stderr.
+- Expected failures are raised as `ToolError`, so the client sees the real message ("File not found", "GROQ_API_KEY is not set").
+- `score_resume_file` reads any `.pdf`/`.docx` path it is given. That is fine for a local stdio server, but do not expose it over a network as-is.
