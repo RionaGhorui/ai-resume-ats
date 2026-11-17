@@ -1,0 +1,8 @@
+# Local run that matches production:  docker compose up --build   ->  http://localhost:8080
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file: .env          # GROQ_API_KEY etc. (create it with: cp .env.example .env)
+    restart: unless-stopped

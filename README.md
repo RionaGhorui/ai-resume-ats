@@ -161,3 +161,79 @@ On Windows use `C:\\...\\ai-resume-ats\\.venv\\Scripts\\python.exe`. Restart Cla
 - With the stdio transport, stdout carries the protocol, so the server must never `print()`. It logs to stderr.
 - Expected failures are raised as `ToolError`, so the client sees the real message ("File not found", "GROQ_API_KEY is not set").
 - `score_resume_file` reads any `.pdf`/`.docx` path it is given. That is fine for a local stdio server, but do not expose it over a network as-is.
+
+## Phase 5: Docker, CI and cloud deployment
+
+New files: `Dockerfile`, `start.sh`, `docker-compose.yml`, `.dockerignore`, `.github/workflows/ci.yml`, plus an optional `APP_PASSWORD` gate in the UI.
+
+How it is packaged: **one container, one public URL**. `start.sh` runs FastAPI on `127.0.0.1:8000` (private) and Streamlit on `$PORT` (public).
+The embedding model is downloaded while the image is built, so containers start fast. If either process dies, the container exits and the platform restarts it.
+
+### A. Run in Docker locally
+
+```bash
+cp .env.example .env            # Windows: copy .env.example .env   (then add GROQ_API_KEY)
+docker compose up --build       # open http://localhost:8080
+# or without compose:
+docker build -t ai-resume-ats .
+docker run --rm -p 8080:8080 --env-file .env ai-resume-ats
+```
+
+### B. Deploy to Google Cloud Run
+
+Needs a Google Cloud project **with billing enabled** and the [gcloud CLI](https://cloud.google.com/sdk/docs/install). Cloud Run bills per use and has a monthly free allowance (check the current pricing page). The service scales to zero, so the first request after a quiet period is slow.
+
+```bash
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com
+
+# keep keys in Secret Manager, not in the image or plain env vars
+printf '%s' "YOUR_GROQ_KEY"      | gcloud secrets create groq-api-key --data-file=-
+printf '%s' "pick-a-password"    | gcloud secrets create app-password --data-file=-
+
+# allow Cloud Run's default service account to read them
+PROJECT_NUMBER=$(gcloud projects describe YOUR_PROJECT_ID --format='value(projectNumber)')
+for s in groq-api-key app-password; do
+  gcloud secrets add-iam-policy-binding $s \
+    --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+done
+
+# build from the Dockerfile in this folder and deploy (first build takes several minutes)
+gcloud run deploy ai-resume-ats --source . --region asia-south1 \
+  --memory 2Gi --cpu 1 --port 8080 --timeout 3600 \
+  --max-instances 1 --session-affinity --allow-unauthenticated \
+  --set-secrets GROQ_API_KEY=groq-api-key:latest,APP_PASSWORD=app-password:latest
+```
+
+Then:
+
+```bash
+URL=$(gcloud run services describe ai-resume-ats --region asia-south1 --format='value(status.url)')
+curl "$URL/_stcore/health"                                   # prints: ok
+gcloud run services logs read ai-resume-ats --region asia-south1 --limit 50     # logs
+gcloud run services delete ai-resume-ats --region asia-south1                    # remove it when done
+```
+
+Why `--allow-unauthenticated` plus `APP_PASSWORD`: the URL is public, and every analysis spends your Groq quota, so the app asks for a password first.
+`asia-south1` is Mumbai; pick any region you like. `--max-instances 1` keeps a user's session on one instance (Streamlit keeps its state in memory).
+
+### C. Any other Docker host (Render, Railway, Fly.io, a VPS)
+Use the same image. Set `GROQ_API_KEY` and `APP_PASSWORD` as secrets on the platform and make sure it passes the port in `$PORT`. Plan for roughly 1 GB of RAM or more (my estimate, not measured), so free 512 MB tiers are likely too small. Hugging Face Docker Spaces now need a paid plan.
+
+### D. CI on GitHub
+
+```bash
+git init && git add . && git commit -m "AI Resume ATS"
+git branch -M main
+git remote add origin https://github.com/YOUR_NAME/ai-resume-ats.git
+git push -u origin main
+```
+
+Open the repo's **Actions** tab. Every push runs: compile check, tests, and a Docker build. `.env` is git-ignored, so your key is never pushed.
+
+### Troubleshooting
+- `Groq request failed ... model_decommissioned`: set `GROQ_MODEL` to a current model from <https://console.groq.com/docs/models>.
+- Warning "Semantic search is unavailable": the embedding model is not in the cache. Run once with internet, or rebuild the image.
+- File upload returns 403 behind a proxy: set the environment variable `STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION=false` (only if you hit this).

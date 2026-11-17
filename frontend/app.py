@@ -1,4 +1,5 @@
 """Streamlit UI. Run with:  streamlit run frontend/app.py"""
+import hmac
 import json
 import os
 
@@ -6,6 +7,7 @@ import requests
 import streamlit as st
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
+APP_PASSWORD = os.getenv("APP_PASSWORD", "")      # set it to require a password (protects your API quota)
 SEV_ICON = {"High": "🔴", "Moderate": "🟠", "Low": "🟡"}
 
 
@@ -115,6 +117,17 @@ def show(r: dict) -> None:
 
 
 st.set_page_config(page_title="AI Resume ATS", page_icon="📄", layout="wide")
+
+if APP_PASSWORD and not st.session_state.get("authed"):
+    st.title("🔒 AI Resume ATS")
+    entered = st.text_input("Password", type="password")
+    if entered and hmac.compare_digest(entered.encode(), APP_PASSWORD.encode()):
+        st.session_state["authed"] = True
+        st.rerun()
+    elif entered:
+        st.error("Wrong password.")
+    st.stop()
+
 st.title("📄 AI Resume ATS")
 st.caption("Upload your resume, optionally paste a job description, get a score and specific fixes.")
 

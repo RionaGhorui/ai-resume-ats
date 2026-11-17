@@ -39,3 +39,23 @@ def test_markdown_report(result):
     exec(compile(src, "app_helpers", "exec"), ns)
     md = ns["to_markdown"](result)
     assert md.startswith("# ATS Report") and "Kubernetes" in md
+
+
+def test_password_gate(monkeypatch, result):
+    monkeypatch.setenv("APP_PASSWORD", "s3cret")
+    at = AppTest.from_file(str(APP), default_timeout=30)
+    at.session_state["result"] = result            # even with a result waiting, the gate must come first
+    at.run()
+    assert len(at.text_input) == 1 and len(at.metric) == 0       # locked: no results visible
+
+    at.text_input[0].set_value("wrong").run()
+    assert at.error and len(at.metric) == 0
+
+    at.text_input[0].set_value("s3cret").run()
+    assert not at.exception and len(at.metric) == 3              # unlocked: the dashboard renders
+
+
+def test_no_password_means_open(monkeypatch):
+    monkeypatch.delenv("APP_PASSWORD", raising=False)
+    at = AppTest.from_file(str(APP), default_timeout=30).run()
+    assert not at.exception and len(at.text_input) == 0
