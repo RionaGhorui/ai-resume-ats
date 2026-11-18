@@ -1,0 +1,207 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Figtree:wght@400..700&display=swap");
+
+/* =====================================================================
+   AI Resume ATS: "marked-up page" theme
+   Desk-grey page, white paper sheets, highlighter-yellow = found,
+   red pen = missing, sheet top edge = score colour.
+   Streamlit's own colours/fonts are set in .streamlit/config.toml;
+   this file overrides what the theme cannot reach.
+   ===================================================================== */
+
+:root {
+  --desk: #E8ECF2;
+  --paper: #FFFFFF;
+  --wash: #F3F5F9;
+  --ink: #17202E;
+  --ink-2: #58657A;
+  --rule: #D3DAE4;
+  --pass: #0A7F55;
+  --pass-dark: #086344;
+  --mark: #FFE15A;
+  --mark-ink: #3A2F00;
+  --pen: #C9382C;
+  --amber: #9A5B00;
+  --display: "Bricolage Grotesque", "Segoe UI Semibold", system-ui, sans-serif;
+  --body: "Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* ---------- page frame ---------- */
+.stApp { background: var(--desk); color: var(--ink); font-family: var(--body); }
+.stApp [data-testid="stHeader"] { background: transparent; }
+.stApp [data-testid="stAppDeployButton"],
+.stApp [data-testid="stMainMenu"],
+.stApp footer { display: none !important; }
+.stApp [data-testid="stMainBlockContainer"] { max-width: 1040px; padding: 3.5rem 1.5rem 5rem; }
+/* the <style> block that carries this file leaves an empty row; hide the row (the CSS still applies) */
+.stApp [data-testid="stElementContainer"]:has(> [data-testid="stMarkdown"] style) { display: none; }
+
+.stApp [data-testid="stMarkdownContainer"] p,
+.stApp [data-testid="stMarkdownContainer"] li,
+.stApp [data-testid="stWidgetLabel"] p,
+.stApp textarea, .stApp input, .stApp button { font-family: var(--body); }
+
+/* ---------- hero ---------- */
+.stApp .hero h1 {
+  font-family: var(--display); font-weight: 750; font-size: clamp(2.1rem, 4.6vw, 3.2rem);
+  line-height: 1.04; letter-spacing: -0.028em; max-width: 17ch; margin: 0 0 1rem; padding: 0; color: var(--ink);
+}
+.stApp .hero p { max-width: 56ch; margin: 0 0 2.25rem; color: var(--ink-2); font-size: 1.08rem; line-height: 1.55; }
+
+/* ---------- inputs ---------- */
+.stApp [data-testid="stWidgetLabel"] p { font-weight: 650; font-size: 0.95rem; color: var(--ink); }
+
+.stApp [data-testid="stFileUploaderDropzone"] {
+  background: var(--paper); border: 1.5px dashed #8EA0B8; border-radius: 6px; padding: 1.5rem 1.25rem; min-height: 9rem;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+/* empty state only: stack the Upload button and the size hint, both left-aligned */
+.stApp [data-testid="stFileUploaderDropzone"]:has(> [data-testid="stFileUploaderDropzoneInstructions"]) {
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 0.9rem;
+}
+.stApp [data-testid="stFileUploaderDropzoneInstructions"] { align-self: flex-start; margin: 0; }
+.stApp [data-testid="stFileUploaderDropzoneInstructions"],
+.stApp [data-testid="stFileUploaderDropzoneInstructions"] > div {
+  width: auto; align-items: flex-start; justify-content: flex-start; text-align: left;
+}
+.stApp [data-testid="stFileUploaderDropzone"]:hover { border-color: var(--pass); background: #F3FBF7; }
+
+.stApp [data-testid="stTextArea"] textarea {
+  background: var(--paper); color: var(--ink); border-radius: 6px; font-size: 0.98rem; line-height: 1.5;
+}
+
+/* ---------- buttons ---------- */
+.stApp button[kind="primary"], .stApp [data-testid="stBaseButton-primary"] {
+  background: var(--pass); color: #fff; border: 0; border-radius: 6px; padding: 0.7rem 1.6rem;
+  font-weight: 650; font-size: 1rem; letter-spacing: 0.005em; transition: background-color 0.15s;
+}
+.stApp button[kind="primary"]:hover:not(:disabled), .stApp [data-testid="stBaseButton-primary"]:hover:not(:disabled) { background: var(--pass-dark); color: #fff; }
+.stApp button[kind="primary"]:disabled, .stApp [data-testid="stBaseButton-primary"]:disabled { background: #DCE2EA; color: #66738A; opacity: 1; }
+
+.stApp button[kind="secondary"], .stApp [data-testid="stBaseButton-secondary"] {
+  background: var(--paper); color: var(--ink); border: 1.5px solid var(--ink); border-radius: 6px; font-weight: 600;
+}
+.stApp button[kind="secondary"]:hover, .stApp [data-testid="stBaseButton-secondary"]:hover { background: var(--ink); color: #fff; }
+
+.stApp :focus-visible { outline: 3px solid var(--pass); outline-offset: 2px; }
+
+/* ---------- the report sheet (the one memorable element) ---------- */
+.stApp .report {
+  --tone: var(--pass);
+  position: relative; overflow: hidden; background: var(--paper);
+  border: 1px solid var(--rule); border-top: 5px solid var(--tone); border-radius: 4px;
+  padding: 2rem 2rem 0; margin: 2.5rem 0 1.5rem;
+}
+.stApp .report.tone-fair { --tone: var(--amber); }
+.stApp .report.tone-low { --tone: var(--pen); }
+
+/* a single scan line sweeps the sheet once, like an ATS reading it */
+.stApp .report::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--tone);
+  opacity: 0; pointer-events: none; animation: scan 1.2s ease-out 0.15s 1 both;
+}
+@keyframes scan { 0% { top: 0; opacity: 0.85; } 100% { top: 100%; opacity: 0; } }
+
+.stApp .report-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 2rem 3.5rem; align-items: center; }
+.stApp .verdict { display: flex; align-items: center; gap: 1.75rem; }
+
+.stApp .ring {
+  --size: 9rem; position: relative; flex: none; width: var(--size); height: var(--size); border-radius: 50%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: conic-gradient(var(--tone) calc(var(--p) * 1%), #E3E8EF 0);
+}
+.stApp .ring::before { content: ""; position: absolute; inset: 0.8rem; border-radius: 50%; background: var(--paper); }
+.stApp .ring .num { position: relative; font-family: var(--display); font-weight: 750; font-size: 3rem; line-height: 1; letter-spacing: -0.03em; color: var(--ink); }
+.stApp .ring .of { position: relative; margin-top: 0.15rem; font-size: 0.78rem; color: var(--ink-2); }
+
+.stApp .verdict-copy h2 { margin: 0 0 0.35rem; padding: 0; font-family: var(--display); font-weight: 700; font-size: 1.9rem; letter-spacing: -0.02em; line-height: 1.1; color: var(--ink); }
+.stApp .verdict-copy p { margin: 0; max-width: 24ch; color: var(--ink-2); line-height: 1.45; }
+
+.stApp .bars { display: grid; gap: 0.95rem; }
+.stApp .bar-head { display: flex; justify-content: space-between; margin-bottom: 0.3rem; font-size: 0.92rem; }
+.stApp .bar-head b { font-weight: 650; font-variant-numeric: tabular-nums; }
+.stApp .bar-track { height: 8px; border-radius: 999px; background: #E3E8EF; overflow: hidden; }
+.stApp .bar-track i { display: block; height: 100%; border-radius: inherit; background: var(--pass); }
+.stApp .bar.mid .bar-track i { background: var(--amber); }
+.stApp .bar.low .bar-track i { background: var(--pen); }
+
+.stApp .stats { display: flex; flex-wrap: wrap; list-style: none; margin: 2rem -2rem 0; padding: 0; border-top: 1px solid var(--rule); }
+.stApp .stats li { flex: 1 1 12rem; margin: 0; padding: 1.1rem 2rem 1.25rem; border-right: 1px solid var(--rule); }
+.stApp .stats li:last-child { border-right: 0; }
+.stApp .stats b { display: block; font-family: var(--display); font-weight: 700; font-size: 2rem; line-height: 1.1; letter-spacing: -0.02em; }
+.stApp .stats span { color: var(--ink-2); font-size: 0.92rem; }
+
+/* ---------- section titles, chips, lists ---------- */
+.stApp h3.sec { margin: 1.75rem 0 0.5rem; padding: 0; font-family: var(--display); font-weight: 700; font-size: 1.2rem; letter-spacing: -0.012em; color: var(--ink); }
+.stApp .muted { color: var(--ink-2); font-size: 0.95rem; }
+
+.stApp .chips { display: flex; flex-wrap: wrap; gap: 0.45rem 0.5rem; list-style: none; margin: 0.4rem 0 0.9rem; padding: 0; }
+.stApp .chip { font-family: var(--body); margin: 0; padding: 0.22rem 0.65rem; border-radius: 3px; font-size: 0.92rem; font-weight: 550; line-height: 1.35; }
+.stApp .chip.hit { background: var(--mark); color: var(--mark-ink); }
+.stApp .chip.miss { background: transparent; color: var(--pen); border: 1.5px solid var(--pen); padding: 0.1rem 0.55rem; }
+
+.stApp .proof { list-style: none; margin: 0.5rem 0 1.5rem; padding: 0; display: grid; gap: 0.7rem; }
+.stApp .proof li { padding: 0; display: grid; grid-template-columns: minmax(7rem, 11rem) 1fr; gap: 0.25rem 1.25rem; align-items: baseline; margin: 0; }
+.stApp .proof .chip { justify-self: start; }
+.stApp .proof .why { color: var(--ink-2); font-size: 0.93rem; }
+
+.stApp .strengths { list-style: none; margin: 0.4rem 0 1.5rem; padding: 0; display: grid; gap: 0.5rem; }
+.stApp .strengths li { position: relative; margin: 0; padding-left: 1.7rem; }
+.stApp .strengths li::before {
+  content: ""; position: absolute; left: 0.1rem; top: 0.38em; width: 0.8rem; height: 0.42rem;
+  border-left: 2.5px solid var(--pass); border-bottom: 2.5px solid var(--pass); transform: rotate(-45deg);
+}
+
+.stApp .callout { margin: 0.75rem 0 0.25rem; padding: 0.85rem 1.1rem; background: #FBEDEB; border-left: 4px solid var(--pen); border-radius: 0 4px 4px 0; }
+
+.stApp .evidence-wrap { overflow-x: auto; margin: 0.5rem 0 1rem; }
+.stApp table.evidence { width: 100%; border-collapse: collapse; font-size: 0.93rem; }
+.stApp table.evidence, .stApp table.evidence th, .stApp table.evidence td { font-family: var(--body); }
+.stApp table.evidence th, .stApp table.evidence td { border: 0; border-bottom: 1px solid var(--rule); background: transparent; }
+.stApp table.evidence th { text-align: left; font-weight: 650; padding: 0.5rem 1rem 0.5rem 0; border-bottom: 2px solid var(--ink); white-space: nowrap; }
+.stApp table.evidence td { padding: 0.7rem 1rem 0.7rem 0; vertical-align: top; }
+.stApp table.evidence td.sim { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* ---------- tabs (Streamlit 1.67 markup: div[data-testid=stTab][role=tab]) ---------- */
+.stApp [role="tablist"] { gap: 1.75rem; border-bottom: 1px solid var(--rule); }
+.stApp [data-testid="stTab"] { padding: 0.75rem 0; color: var(--ink-2); }
+.stApp [data-testid="stTab"] [data-testid="stMarkdownContainer"] p { font-size: 1rem; font-weight: 600; color: inherit; }
+.stApp [data-testid="stTab"]:hover { color: var(--ink); }
+.stApp [data-testid="stTab"][aria-selected="true"] { color: var(--ink); }
+.stApp [data-testid="stTab"] > div:not([data-testid]) { background: var(--pass); height: 3px; }
+
+/* ---------- expanders (issues) ---------- */
+.stApp [data-testid="stExpander"] details { background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; }
+.stApp [data-testid="stExpander"] summary { padding: 0.85rem 1rem; font-weight: 600; }
+.stApp [data-testid="stExpander"] summary:hover { background: var(--wash); }
+.stApp [data-testid="stExpander"] summary [data-testid="stMarkdownContainer"] p { font-weight: 600; font-size: 1rem; }
+
+/* Streamlit adds a link icon to every heading; we do not need it */
+.stApp [data-testid="stHeaderActionElements"] { display: none; }
+
+/* ---------- alerts, code ---------- */
+.stApp [data-testid="stAlert"] { border-radius: 4px; border: 1px solid var(--rule); }
+.stApp [data-testid="stCode"] pre { background: var(--wash); border: 1px solid var(--rule); border-radius: 4px; }
+/* the "code" here is resume prose (example bullets), so keep it readable and wrapped; the copy button stays */
+.stApp [data-testid="stCode"] code { font-family: var(--body); font-size: 0.95rem; line-height: 1.5; white-space: pre-wrap !important; overflow-wrap: anywhere; }
+
+/* ---------- small screens ---------- */
+@media (max-width: 760px) {
+  .stApp [data-testid="stMainBlockContainer"] { padding: 2rem 1rem 3rem; }
+  .stApp .report { padding: 1.4rem 1.25rem 0; }
+  .stApp .report-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+  .stApp .ring { --size: 7.5rem; }
+  .stApp .ring .num { font-size: 2.5rem; }
+  .stApp .stats { flex-wrap: nowrap; margin: 1.5rem -1.25rem 0; }
+  .stApp .stats li { flex: 1 1 0; min-width: 0; padding: 0.9rem 0.85rem 1rem; border-right: 1px solid var(--rule); }
+  .stApp .stats li:last-child { border-right: 0; }
+  .stApp .stats b { font-size: 1.55rem; }
+  .stApp .stats span { font-size: 0.8rem; line-height: 1.3; display: block; }
+  .stApp [role="tablist"] { gap: 1.1rem; }
+  .stApp .proof li { grid-template-columns: 1fr; }
+}
+
+/* ---------- motion preferences ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .stApp .report::after { animation: none; }
+  .stApp * { transition: none !important; }
+}

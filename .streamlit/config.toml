@@ -1,0 +1,16 @@
+# Theme tokens for Streamlit's own widgets. Everything else is in frontend/styles.css.
+[theme]
+base = "light"
+primaryColor = "#0A7F55"
+backgroundColor = "#E8ECF2"
+secondaryBackgroundColor = "#F3F5F9"
+textColor = "#17202E"
+
+[client]
+toolbarMode = "minimal"       # hides the Deploy button and the hamburger menu
+
+[server]
+maxUploadSize = 5            # MB. Matches the API limit, and the upload box now says "5MB per file"
+
+[browser]
+gatherUsageStats = false

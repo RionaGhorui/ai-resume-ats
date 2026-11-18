@@ -11,19 +11,17 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# 1) dependencies first: this layer is cached until requirements.txt changes
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-# 2) bake the embedding model into the image: fast cold starts, no download at runtime
 RUN python -c "import os; from fastembed import TextEmbedding; TextEmbedding(os.environ['EMBEDDING_MODEL'], cache_dir=os.environ['EMBEDDING_CACHE_DIR'])"
 
-# 3) app code last (changes most often)
 COPY backend backend
 COPY frontend frontend
+COPY .streamlit .streamlit
 COPY start.sh .
 
-# run as a non-root user
+#run as a non-root user
 RUN useradd --create-home --uid 1000 app && chown -R app:app /app
 USER app
 
